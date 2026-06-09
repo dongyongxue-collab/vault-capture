@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vault Capture</title>
+  <style>
+    :root {
+      --obs-bg: #15171c;
+      --obs-surface: #1d2027;
+      --obs-surface-2: #232730;
+      --obs-line: rgba(255, 255, 255, 0.08);
+      --obs-soft: #9ca3b4;
+      --obs-text: #f4f5f7;
+      --obs-accent: #8b7cff;
+      --obs-accent-2: #7aa2ff;
+      --notion-bg: #f6f5f3;
+      --notion-paper: #ffffff;
+      --notion-line: rgba(55, 53, 47, 0.12);
+      --notion-text: #2f2c28;
+      --notion-soft: #78716b;
+      --notion-green: #2f9e69;
+      --shadow-dark: 0 24px 60px rgba(0, 0, 0, 0.34);
+      --shadow-light: 0 18px 40px rgba(31, 28, 24, 0.08);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--obs-text);
+      background:
+        radial-gradient(circle at top left, rgba(139, 124, 255, 0.14), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(122, 162, 255, 0.12), transparent 28%),
+        linear-gradient(180deg, #111318 0%, #181b22 100%);
+    }
+
+    .shell {
+      width: min(1440px, calc(100vw - 24px));
+      margin: 12px auto;
+      min-height: calc(100vh - 24px);
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      border-radius: 32px;
+      overflow: hidden;
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.36);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(20, 22, 28, 0.86);
+      backdrop-filter: blur(16px);
+    }
+
+    .sidebar {
+      background:
+        linear-gradient(180deg, rgba(29,32,39,0.96), rgba(22,24,31,0.98)),
+        radial-gradient(circle at top right, rgba(139, 124, 255, 0.16), transparent 28%);
+      border-right: 1px solid var(--obs-line);
+      padding: 22px 18px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--obs-accent), var(--obs-accent-2));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.26), 0 14px 22px rgba(139,124,255,.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      transform: rotate(-28deg);
+      background: rgba(255,255,255,.92);
+    }
+
+    .brand-mark::before {
+      width: 34px;
+      height: 8px;
+      left: 6px;
+      top: 14px;
+    }
+
+    .brand-mark::after {
+      width: 18px;
+      height: 8px;
+      left: 14px;
+      top: 24px;
+      background: rgba(255,255,255,.66);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -.03em;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--obs-soft);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .status-card,
+    .vault-card,
+    .tip-card,
+    .recent-card {
+      border: 1px solid var(--obs-line);
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,.03);
+      box-shadow: var(--shadow-dark);
+    }
+
+    .status-card {
+      padding: 14px 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--obs-soft);
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #34d399, #158a62);
+      box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.12);
+    }
+
+    .status-meta {
+      font-size: 12px;
+      color: var(--obs-soft);
+      line-height: 1.7;
+      word-break: break-word;
+    }
+
+    .vault-card,
+    .tip-card,
+    .recent-card {
+      padding: 16px;
+    }
+
+    .sidebar h2 {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--obs-soft);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+
+    .vault-tree {
+      display: grid;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+    }
+
+    .tree-item strong {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .tree-item span {
+      color: var(--obs-soft);
+      font-size: 12px;
+    }
+
+    .tip-list,
+    .recent-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tip-row,
+    .recent-row {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.04);
+    }
+
+    .tip-row strong,
+    .recent-row strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .tip-row span,
+    .recent-row span,
+    .recent-row a {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--obs-soft);
+      text-decoration: none;
+    }
+
+    .recent-row a:hover { color: var(--obs-text); }
+
+    .workspace {
+      background: linear-gradient(180deg, #f8f7f5 0%, #f2f1ee 100%);
+      color: var(--notion-text);
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      min-width: 0;
+    }
+
+    .workspace-top {
+      padding: 18px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .breadcrumbs {
+      color: var(--notion-soft);
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .top-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--notion-line);
+      background: rgba(255,255,255,.86);
+      color: var(--notion-soft);
+      font-size: 12px;
+      box-shadow: var(--shadow-light);
+    }
+
+    .hero {
+      padding: 12px 24px 0;
+    }
+
+    .hero-card {
+      border-radius: 28px;
+      border: 1px solid rgba(55, 53, 47, 0.08);
+      background:
+        radial-gradient(circle at top right, rgba(139, 124, 255, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.88));
+      box-shadow: var(--shadow-light);
+      padding: 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #6b63e7;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 26px;
+      height: 1px;
+      background: currentColor;
+      opacity: .6;
+    }
+
+    .hero-card h3 {
+      margin: 0;
+      font-size: clamp(30px, 3.8vw, 54px);
+      line-height: 1.04;
+      letter-spacing: -.05em;
+      max-width: 12ch;
+    }
+
+    .hero-card p {
+      margin: 14px 0 0;
+      color: var(--notion-soft);
+      line-height: 1.85;
+      font-size: 15px;
+      max-width: 54ch;
+    }
+
+    .hero-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .hero-chip {
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(47, 158, 105, 0.08);
+      color: #1f7a52;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .notion-panel {
+      border-radius: 22px;
+      background: #fbfbfa;
+      border: 1px solid rgba(55, 53, 47, 0.08);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .notion-panel strong {
+      font-size: 14px;
+    }
+
+    .notion-panel p,
+    .notion-panel li {
+      margin: 0;
+      color: var(--notion-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .notion-panel ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .editor-zone {
+      padding: 22px 24px 24px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 22px;
+      min-width: 0;
+    }
+
+    .paper,
+    .database-card {
+      border-radius: 24px;
+      border: 1px solid rgba(55, 53, 47, 0.08);
+      background: var(--notion-paper);
+      box-shadow: var(--shadow-light);
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .paper-head,
+    .database-head {
+      padding: 18px 22px;
+      border-bottom: 1px solid rgba(55, 53, 47, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .paper-head h2,
+    .database-head h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -.03em;
+    }
+
+    .paper-head span,
+    .database-head span {
+      color: var(--notion-soft);
+      font-size: 12px;
+    }
+
+    .paper-body {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .field-group.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--notion-soft);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .field,
+    .select,
+    .textarea {
+      width: 100%;
+      border: 1px solid var(--notion-line);
+      border-radius: 16px;
+      background: #fbfbfa;
+      color: var(--notion-text);
+      font: inherit;
+      padding: 15px 16px;
+      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+
+    .field:focus,
+    .select:focus,
+    .textarea:focus {
+      outline: none;
+      border-color: rgba(122, 162, 255, 0.46);
+      box-shadow: 0 0 0 5px rgba(122, 162, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .textarea {
+      min-height: 150px;
+      resize: vertical;
+      line-height: 1.75;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .button {
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+
+    .button:hover { transform: translateY(-1px); }
+    .button:disabled { opacity: .6; cursor: wait; transform: none; }
+
+    .button-primary {
+      color: white;
+      background: linear-gradient(135deg, #6b63e7, #5168ff);
+      box-shadow: 0 14px 28px rgba(81, 104, 255, 0.24);
+    }
+
+    .button-secondary {
+      color: var(--notion-text);
+      background: #f6f5f3;
+      border: 1px solid var(--notion-line);
+    }
+
+    .button-sync {
+      color: white;
+      background: linear-gradient(135deg, #1f9a66, #147a52);
+      box-shadow: 0 14px 28px rgba(31, 154, 102, 0.2);
+    }
+
+    .helper {
+      color: var(--notion-soft);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--notion-soft);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(81, 104, 255, 0.18);
+      border-top-color: #5168ff;
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .database-body {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .database-table {
+      border: 1px solid rgba(55,53,47,.08);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #faf9f7;
+    }
+
+    .table-head,
+    .table-row {
+      display: grid;
+      grid-template-columns: 1.3fr .78fr .78fr .74fr .72fr;
+      gap: 10px;
+      padding: 12px 14px;
+      align-items: center;
+    }
+
+    .table-head {
+      background: #f3f1ee;
+      color: var(--notion-soft);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .table-row {
+      border-top: 1px solid rgba(55,53,47,.08);
+      color: var(--notion-text);
+      font-size: 13px;
+    }
+
+    .table-row strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tag.green {
+      background: rgba(47,158,105,.12);
+      color: #1e7a51;
+    }
+
+    .tag.purple {
+      background: rgba(107,99,231,.12);
+      color: #5b52d1;
+    }
+
+    .result-root {
+      display: grid;
+      gap: 14px;
+    }
+
+    .result-card {
+      border: 1px solid rgba(55,53,47,.08);
+      border-radius: 18px;
+      background: #fbfbfa;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .result-card h3 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: -.03em;
+    }
+
+    .result-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .meta-pill {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #f3f1ee;
+      color: var(--notion-soft);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .result-card p {
+      margin: 0;
+      color: var(--notion-text);
+      line-height: 1.8;
+    }
+
+    .notice-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(55,53,47,.08);
+      background: rgba(81,104,255,.08);
+      color: #4b57c8;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .notice-strip.update {
+      background: rgba(47,158,105,.08);
+      color: #1f7a52;
+    }
+
+    .notice-strip.error {
+      background: rgba(191, 46, 46, 0.08);
+      color: #b23a3a;
+    }
+
+    .result-kv {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .result-kv .bullet-card p {
+      color: var(--notion-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .bullet-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .bullet-card {
+      border-radius: 16px;
+      background: #f8f7f5;
+      border: 1px solid rgba(55,53,47,.08);
+      padding: 14px;
+    }
+
+    .bullet-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .bullet-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--notion-soft);
+      font-size: 13px;
+      line-height: 1.7;
+      display: grid;
+      gap: 8px;
+    }
+
+    .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #f3f1ee;
+      border: 1px solid rgba(55,53,47,.08);
+      color: var(--notion-text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .link-button:hover { background: #ece9e4; }
+
+    .empty-state {
+      color: var(--notion-soft);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 1180px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        grid-template-rows: auto;
+      }
+
+      .hero-card,
+      .editor-zone {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100vw - 10px, 100%);
+        margin: 5px auto;
+        min-height: calc(100vh - 10px);
+        border-radius: 22px;
+      }
+
+      .workspace-top,
+      .hero,
+      .editor-zone {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .hero-card,
+      .paper-body,
+      .database-body {
+        padding: 16px;
+      }
+
+      .form-grid,
+      .bullet-grid,
+      .result-kv,
+      .table-head,
+      .table-row {
+        grid-template-columns: 1fr;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <aside class="sidebar">
+      <section class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Vault Capture</h1>
+          <p>像 Obsidian 一样收集，像 Notion 一样整理和浏览。</p>
+        </div>
+      </section>
+
+      <section class="status-card">
+        <div class="status-line">
+          <span class="status-dot"></span>
+          <span id="healthText">正在检查本地服务...</span>
+        </div>
+        <div class="status-meta">这条入口会把网页内容同时写进 Obsidian 正式笔记和 Notion 日历数据库。</div>
+      </section>
+
+      <section class="vault-card">
+        <h2>Vault Flow</h2>
+        <div class="vault-tree">
+          <div class="tree-item"><strong>Source URL</strong><span>网页原文</span></div>
+          <div class="tree-item"><strong>Clippings / Archive</strong><span>原始归档</span></div>
+          <div class="tree-item"><strong>信息汇总 / 自动整理</strong><span>正式笔记</span></div>
+          <div class="tree-item"><strong>Notion Calendar DB</strong><span>按日期查看</span></div>
+        </div>
+      </section>
+
+      <section class="tip-card">
+        <h2>输入建议</h2>
+        <div class="tip-list">
+          <div class="tip-row">
+            <strong>正文清晰的文章页最稳</strong>
+            <span>新闻、博客、教程、公开资料页都很适合直接抓。</span>
+          </div>
+          <div class="tip-row">
+            <strong>标题可手动覆盖</strong>
+            <span>如果网页标题太长或带站点噪音，可以直接改成你想保留的笔记名。</span>
+          </div>
+          <div class="tip-row">
+            <strong>分类可强制指定</strong>
+            <span>不想完全依赖自动判断时，可以手动选到 AI 工具、资料库等栏目。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="recent-card">
+        <h2>最近同步</h2>
+        <div id="recentRoot" class="recent-list">
+          <div class="recent-row">
+            <strong>最近记录会显示在这里</strong>
+            <span>成功同步后，你可以快速回到条目、日历和原文。</span>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="workspace-top">
+        <div class="breadcrumbs">Capture / URL to Obsidian / Notion Calendar</div>
+        <div class="top-actions">
+          <div class="top-chip">Model: <strong id="modelValue">glm-5.1</strong></div>
+          <div class="top-chip">Destination: Notion Calendar Database</div>
+        </div>
+      </div>
+
+      <section class="hero">
+        <article class="hero-card">
+          <div>
+            <div class="eyebrow">Obsidian + Notion</div>
+            <h3>先收进 Vault，再像数据库一样回看。</h3>
+            <p>
+              这个页面不是单纯的表单，而是你内容归档流程的统一入口。
+              左边保留 Obsidian 那种工作台感，右边则像 Notion 页面和数据库一样，让结果更适合浏览、筛选和日历回看。
+            </p>
+            <div class="hero-chips">
+              <span class="hero-chip">网页转笔记</span>
+              <span class="hero-chip">自动中文总结</span>
+              <span class="hero-chip">Notion 日历字段</span>
+              <span class="hero-chip">最近记录回看</span>
+            </div>
+          </div>
+          <div class="notion-panel">
+            <strong>Notion 端现在会这样落地</strong>
+            <ul>
+              <li>每次同步写成一条数据库记录，不再只是普通页面。</li>
+              <li>自动带上日期字段，适合直接切日历视图。</li>
+              <li>保留分类、平台、站点、来源链接、摘要和 Obsidian 路径。</li>
+            </ul>
+          </div>
+        </article>
+      </section>
+
+      <section class="editor-zone">
+        <article class="paper">
+          <div class="paper-head">
+            <h2>Capture Note</h2>
+            <span>像写一条 Obsidian 卡片那样输入</span>
+          </div>
+          <div class="paper-body">
+            <div class="form-grid">
+              <label class="field-group full">
+                <span class="field-label">网页地址</span>
+                <input id="urlInput" class="field" type="url" placeholder="https://news.aibase.com/zh/news/26951" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">手动标题</span>
+                <input id="titleInput" class="field" type="text" placeholder="可选：覆盖网页标题" />
+              </label>
+              <label class="field-group">
+                <span class="field-label">手动分类</span>
+                <select id="categoryInput" class="select">
+                  <option value="">自动判断</option>
+                  <option value="ai_tools">AI 工具</option>
+                  <option value="product_insights">产品思考</option>
+                  <option value="video_notes">视频笔记</option>
+                  <option value="reference_library">资料库</option>
+                  <option value="industry_observations">行业观察</option>
+                </select>
+              </label>
+              <label class="field-group full">
+                <span class="field-label">补充说明</span>
+                <textarea id="notesInput" class="textarea" placeholder="可选：比如“请更关注商业影响、融资信息和竞争格局”"></textarea>
+              </label>
+            </div>
+
+            <div class="action-row">
+              <button id="captureButton" class="button button-primary">提取预览</button>
+              <button id="syncButton" class="button button-sync" disabled>确认同步</button>
+              <button id="fillDemoButton" class="button button-secondary">填入示例</button>
+              <button id="clearButton" class="button button-secondary">清空</button>
+            </div>
+
+            <div class="helper">现在会先提取预览，再确认写入。命中重复 URL 时，会直接更新已有 Obsidian 笔记和 Notion 条目。</div>
+            <div id="loadingRow"></div>
+          </div>
+        </article>
+
+        <aside class="database-card">
+          <div class="database-head">
+            <h2>Notion Database Preview</h2>
+            <span>像数据库和日历视图一样回看</span>
+          </div>
+          <div class="database-body">
+            <div class="database-table">
+              <div class="table-head">
+                <div>标题</div>
+                <div>收录日期</div>
+                <div>发布日期</div>
+                <div>分类</div>
+                <div>平台</div>
+              </div>
+              <div id="databaseRows" class="table-row">
+                <div><strong>新同步的条目会在这里体现</strong></div>
+                <div>2026-04-09</div>
+                <div>2026-04-09</div>
+                <div><span class="tag green">AI 工具</span></div>
+                <div><span class="tag purple">网站</span></div>
+              </div>
+            </div>
+            <div id="resultRoot" class="result-root">
+              <div class="empty-state">还没有新的结果。你可以先贴一个网址试一下。</div>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const urlInput = document.getElementById("urlInput");
+    const titleInput = document.getElementById("titleInput");
+    const categoryInput = document.getElementById("categoryInput");
+    const notesInput = document.getElementById("notesInput");
+    const captureButton = document.getElementById("captureButton");
+    const syncButton = document.getElementById("syncButton");
+    const fillDemoButton = document.getElementById("fillDemoButton");
+    const clearButton = document.getElementById("clearButton");
+    const loadingRow = document.getElementById("loadingRow");
+    const resultRoot = document.getElementById("resultRoot");
+    const databaseRows = document.getElementById("databaseRows");
+    const recentRoot = document.getElementById("recentRoot");
+    const healthText = document.getElementById("healthText");
+    const modelValue = document.getElementById("modelValue");
+    let currentPreviewId = "";
+    let currentPreviewFingerprint = "";
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function getFormPayload() {
+      return {
+        url: urlInput.value.trim(),
+        title_override: titleInput.value.trim(),
+        category_override: categoryInput.value,
+        notes: notesInput.value.trim(),
+      };
+    }
+
+    function computeFingerprint(payload = getFormPayload()) {
+      return JSON.stringify(payload);
+    }
+
+    function renderDatabaseRow(payload) {
+      if (!payload || !payload.ok) {
+        databaseRows.innerHTML = `
+          <div><strong>新同步的条目会在这里体现</strong></div>
+          <div>2026-04-09</div>
+          <div>待识别</div>
+          <div><span class="tag green">AI 工具</span></div>
+          <div><span class="tag purple">网站</span></div>
+        `;
+        return;
+      }
+
+      databaseRows.innerHTML = `
+        <div><strong>${escapeHtml(payload.title)}</strong></div>
+        <div>${escapeHtml(payload.captured_date || payload.captured_at || "待同步")}</div>
+        <div>${escapeHtml(payload.published_date || "未识别")}</div>
+        <div><span class="tag green">${escapeHtml(payload.category || "未分类")}</span></div>
+        <div><span class="tag purple">${escapeHtml(payload.platform || "网站")}</span></div>
+      `;
+    }
+
+    function invalidatePreview() {
+      currentPreviewId = "";
+      currentPreviewFingerprint = "";
+      syncButton.disabled = true;
+      syncButton.textContent = "确认同步";
+    }
+
+    function renderEmptyState(message = "还没有新的结果。你可以先贴一个网址试一下。") {
+      resultRoot.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+      renderDatabaseRow(null);
+    }
+
+    function renderLoading(active, message = "") {
+      if (!active) {
+        loadingRow.innerHTML = "";
+        captureButton.disabled = false;
+        clearButton.disabled = false;
+        fillDemoButton.disabled = false;
+        syncButton.disabled = !currentPreviewId;
+        return;
+      }
+      captureButton.disabled = true;
+      clearButton.disabled = true;
+      fillDemoButton.disabled = true;
+      syncButton.disabled = true;
+      loadingRow.innerHTML = `<div class="loading"><span class="spinner"></span><span>${escapeHtml(message || "正在抓取网页、生成总结，并同步到 Obsidian 与 Notion...")}</span></div>`;
+    }
+
+    function renderResult(payload) {
+      if (!payload || !payload.ok) {
+        renderDatabaseRow(null);
+        resultRoot.innerHTML = `<div class="empty-state">${escapeHtml(payload?.error || "暂时没有结果")}</div>`;
+        return;
+      }
+
+      renderDatabaseRow(payload);
+      const tags = (payload.tags || [])
+        .map((item) => `<span class="meta-pill">${escapeHtml(item)}</span>`)
+        .join("");
+
+      const keyPoints = (payload.key_points || [])
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join("");
+
+      const actions = (payload.action_items || [])
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join("");
+
+      const noticeClass = payload.duplicate_found ? "notice-strip update" : "notice-strip";
+      const stageText = payload.stage === "preview" ? "预览阶段" : "同步完成";
+      const noticeText = payload.duplicate_found
+        ? `已发现相同 URL，将更新已有条目。${payload.existing_title ? ` 现有标题：${payload.existing_title}` : ""}`
+        : (payload.stage === "preview" ? "这是预览结果，确认后才会写入 Obsidian 和 Notion。" : "新的条目已经写入 Obsidian 与 Notion。");
+
+      const links = [];
+      if (payload.notion_page_url || payload.notion_url || payload.existing_notion_url) {
+        links.push(`<a class="link-button" href="${escapeHtml(payload.notion_page_url || payload.notion_url || payload.existing_notion_url)}" target="_blank" rel="noreferrer">打开 Notion 条目</a>`);
+      }
+      if (payload.notion_calendar_url || payload.notion_database_url) {
+        links.push(`<a class="link-button" href="${escapeHtml(payload.notion_calendar_url || payload.notion_database_url)}" target="_blank" rel="noreferrer">打开日历数据库</a>`);
+      }
+      if (payload.source_url) {
+        links.push(`<a class="link-button" href="${escapeHtml(payload.source_url)}" target="_blank" rel="noreferrer">回到原文</a>`);
+      }
+
+      resultRoot.innerHTML = `
+        <article class="result-card">
+          <div class="${noticeClass}">
+            <span>${escapeHtml(stageText)}</span>
+            <span>·</span>
+            <span>${escapeHtml(payload.sync_action_label || "准备同步")}</span>
+          </div>
+          <p>${escapeHtml(noticeText)}</p>
+          <div class="result-meta">
+            <span class="meta-pill">${escapeHtml(payload.category)}</span>
+            <span class="meta-pill">${escapeHtml(payload.platform)}</span>
+            <span class="meta-pill">${escapeHtml(payload.captured_date || payload.captured_at)}</span>
+            <span class="meta-pill">发布：${escapeHtml(payload.published_date || "未识别")}</span>
+            ${tags}
+          </div>
+          <h3>${escapeHtml(payload.title)}</h3>
+          <p>${escapeHtml(payload.summary)}</p>
+          <div class="bullet-grid">
+            <section class="bullet-card">
+              <strong>核心要点</strong>
+              <ul>${keyPoints || "<li>暂无</li>"}</ul>
+            </section>
+            <section class="bullet-card">
+              <strong>可执行动作</strong>
+              <ul>${actions || "<li>暂无</li>"}</ul>
+            </section>
+          </div>
+          <div class="result-kv">
+            <section class="bullet-card">
+              <strong>Obsidian 正式笔记</strong>
+              <p>${escapeHtml(payload.obsidian_path)}</p>
+            </section>
+            <section class="bullet-card">
+              <strong>原始归档</strong>
+              <p>${escapeHtml(payload.archive_path)}</p>
+            </section>
+          </div>
+          ${payload.duplicate_found ? `
+            <div class="result-kv">
+              <section class="bullet-card">
+                <strong>已有条目</strong>
+                <p>${escapeHtml(payload.existing_title || "已存在记录")}</p>
+              </section>
+              <section class="bullet-card">
+                <strong>已有笔记位置</strong>
+                <p>${escapeHtml(payload.existing_obsidian_path || payload.obsidian_path || "将沿用当前路径")}</p>
+              </section>
+            </div>
+          ` : ""}
+          <div class="link-row">
+            ${links.join("")}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderRecent(items = []) {
+      if (!items.length) {
+        recentRoot.innerHTML = `
+          <div class="recent-row">
+            <strong>最近记录会显示在这里</strong>
+            <span>成功同步后，你可以快速回到条目、日历和原文。</span>
+          </div>
+        `;
+        return;
+      }
+
+      recentRoot.innerHTML = items.slice(0, 6).map((item) => `
+        <article class="recent-row">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.category || "")} · 收录 ${escapeHtml(item.captured_date || item.captured_at || "")} · 发布 ${escapeHtml(item.published_date || "未识别")}</span>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
+            <a href="${escapeHtml(item.notion_page_url || item.notion_url || "#")}" target="_blank" rel="noreferrer">条目</a>
+            <a href="${escapeHtml(item.notion_calendar_url || item.notion_database_url || item.notion_url || "#")}" target="_blank" rel="noreferrer">日历</a>
+            <a href="${escapeHtml(item.source_url || "#")}" target="_blank" rel="noreferrer">原文</a>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    async function loadRecent() {
+      const response = await fetch("/api/recent");
+      const payload = await response.json();
+      renderRecent(payload.items || []);
+    }
+
+    async function loadHealth() {
+      try {
+        const response = await fetch("/api/health");
+        const payload = await response.json();
+        healthText.textContent = `本地服务已连接 · ${payload.host}`;
+        modelValue.textContent = payload.model || "glm-5.1";
+      } catch (error) {
+        healthText.textContent = "本地服务暂时不可达";
+      }
+    }
+
+    async function submitPreview() {
+      const form = getFormPayload();
+      if (!form.url) {
+        renderResult({ ok: false, error: "先输入一个网页地址。" });
+        return;
+      }
+
+      invalidatePreview();
+      renderLoading(true, "正在抓取网页并生成预览...");
+      try {
+        const response = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        const payload = await response.json();
+        renderResult(payload);
+        if (!response.ok) {
+          throw new Error(payload.error || "预览失败");
+        }
+        currentPreviewId = payload.preview_id || "";
+        currentPreviewFingerprint = computeFingerprint(form);
+        syncButton.disabled = !currentPreviewId;
+        syncButton.textContent = payload.duplicate_found ? "确认更新" : "确认同步";
+      } catch (error) {
+        renderResult({ ok: false, error: error.message || "预览失败" });
+      } finally {
+        renderLoading(false);
+      }
+    }
+
+    async function confirmSync() {
+      if (!currentPreviewId) {
+        renderResult({ ok: false, error: "先提取预览，再确认同步。" });
+        return;
+      }
+      if (currentPreviewFingerprint !== computeFingerprint()) {
+        invalidatePreview();
+        renderResult({ ok: false, error: "输入内容已变化，请重新提取预览。" });
+        return;
+      }
+
+      renderLoading(true, "正在写入 Obsidian 与 Notion...");
+      try {
+        const response = await fetch("/api/capture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preview_id: currentPreviewId }),
+        });
+        const payload = await response.json();
+        renderResult(payload);
+        if (!response.ok) {
+          throw new Error(payload.error || "同步失败");
+        }
+        invalidatePreview();
+        await loadRecent();
+      } catch (error) {
+        renderResult({ ok: false, error: error.message || "同步失败" });
+      } finally {
+        renderLoading(false);
+      }
+    }
+
+    captureButton.addEventListener("click", submitPreview);
+    syncButton.addEventListener("click", confirmSync);
+    fillDemoButton.addEventListener("click", () => {
+      urlInput.value = "https://news.aibase.com/zh/news/26951";
+      titleInput.value = "";
+      categoryInput.value = "ai_tools";
+      notesInput.value = "请更关注融资、估值和行业信号。";
+      invalidatePreview();
+      renderEmptyState("示例已填入，可以先点“提取预览”。");
+      urlInput.focus();
+    });
+    clearButton.addEventListener("click", () => {
+      urlInput.value = "";
+      titleInput.value = "";
+      categoryInput.value = "";
+      notesInput.value = "";
+      invalidatePreview();
+      renderEmptyState();
+      urlInput.focus();
+    });
+    [urlInput, titleInput, notesInput].forEach((element) => {
+      element.addEventListener("input", () => {
+        if (currentPreviewId) {
+          invalidatePreview();
+          renderEmptyState("输入内容已变化，请重新提取预览。");
+        }
+      });
+    });
+    categoryInput.addEventListener("change", () => {
+      if (currentPreviewId) {
+        invalidatePreview();
+        renderEmptyState("输入内容已变化，请重新提取预览。");
+      }
+    });
+    urlInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submitPreview();
+      }
+    });
+
+    loadHealth();
+    loadRecent();
+    renderDatabaseRow(null);
+  </script>
+</body>
+</html>

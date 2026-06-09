@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title_clean",
+    "summary",
+    "key_points",
+    "action_items",
+    "tags",
+    "category",
+    "platform"
+  ],
+  "properties": {
+    "title_clean": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "key_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "action_items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "AI工具",
+        "产品思考",
+        "视频笔记",
+        "资料库",
+        "行业观察"
+      ]
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "网站",
+        "视频",
+        "公众号",
+        "文档"
+      ]
+    }
+  }
+}

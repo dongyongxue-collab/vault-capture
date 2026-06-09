@@ -1,0 +1,40 @@
+# Local secrets and machine-specific config
+config.ps1
+.env
+.env.*
+*.local.*
+*.secret.*
+
+# Runtime data and private capture history
+runtime/
+__pycache__/
+*.py[cod]
+*.log
+*.err.log
+*.tmp
+
+# Local workflow exports and manual test payloads
+knowledge-sync-workflow.json
+workflow-export-check.json
+notion-*-test.json
+notion-test-body.json
+zhipu-smoke-test.txt
+
+# Legacy local-only scripts until they are sanitized for sharing
+create-notion-page.ps1
+create_notion_page.py
+import-workflow.ps1
+launch-n8n-knowledge.bat
+publish-note-to-vault.ps1
+read-clip-text.ps1
+run-codex-summary.ps1
+run_codex_summary.py
+run_zhipu_summary.py
+start-n8n-knowledge.ps1
+tiny-prompt.txt
+
+# Editors and OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
