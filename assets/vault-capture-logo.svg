@@ -1,0 +1,18 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Vault Capture logo</title>
+  <desc id="desc">A rounded purple and blue mark with two diagonal white capture strokes.</desc>
+  <defs>
+    <linearGradient id="mark" x1="48" y1="34" x2="216" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B7CFF"/>
+      <stop offset="0.52" stop-color="#6672FF"/>
+      <stop offset="1" stop-color="#49B6F2"/>
+    </linearGradient>
+    <filter id="softShadow" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#3D42C9" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect x="28" y="28" width="200" height="200" rx="50" fill="url(#mark)" filter="url(#softShadow)"/>
+  <path d="M77 130L158 86" stroke="white" stroke-width="25" stroke-linecap="round"/>
+  <path d="M98 171L179 127" stroke="white" stroke-width="25" stroke-linecap="round" opacity="0.86"/>
+  <path d="M73 153L101 138" stroke="#DDE2FF" stroke-width="13" stroke-linecap="round" opacity="0.92"/>
+</svg>

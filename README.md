@@ -1,20 +1,62 @@
-# Vault Capture
+<p align="center">
+  <img src="assets/vault-capture-logo.svg" width="96" alt="Vault Capture logo">
+</p>
 
-Vault Capture is a local Windows workflow for collecting web pages into an Obsidian vault and a Notion calendar database. It runs a small local web page, extracts and summarizes a URL, previews the result, then writes the confirmed capture to Obsidian and Notion.
+<h1 align="center">Vault Capture</h1>
 
-![Vault Capture local UI screenshot](assets/vault-capture-screenshot.png)
+<p align="center">
+  <strong>Local-first URL capture for Obsidian vaults and Notion calendar databases.</strong>
+</p>
 
-## Status
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-6B63E7"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-3776AB">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4">
+  <img alt="Privacy" src="https://img.shields.io/badge/privacy-local--first-159A66">
+  <img alt="Status" src="https://img.shields.io/badge/status-active-222222">
+</p>
 
-This project is open source under the MIT License.
+<p align="center">
+  <img src="assets/vault-capture-screenshot.png" alt="Vault Capture local UI screenshot">
+</p>
 
-## Features
+## Overview
 
-- Paste a URL and preview the extracted title, summary, category, tags, and duplicate status before writing anything.
-- Save the original clipping and the cleaned note into an Obsidian vault.
-- Create or update a Notion database named `网页采集日历`.
-- Reuse existing Obsidian and Notion records when the same source URL is captured again.
-- Keep secrets and runtime history out of Git by default.
+Vault Capture is a focused local workflow for turning useful web pages into durable personal knowledge. It extracts a source URL, generates a Chinese summary, previews the result, then writes the confirmed capture to an Obsidian vault and a Notion calendar database.
+
+The project is intentionally small: a local HTML interface, a Python server, PowerShell launch scripts, and plain configuration files. Secrets and runtime data stay local.
+
+## Why It Exists
+
+Most capture tools either stop at bookmarks or scatter content across separate systems. Vault Capture gives one repeatable path:
+
+- Capture once from a URL.
+- Review the extracted title, category, summary, tags, and duplicate status.
+- Save a raw archive and a cleaned Obsidian note.
+- Sync a structured Notion entry that is easy to browse by date, category, platform, and source.
+
+## Highlights
+
+- Review-before-write flow to avoid polluting Obsidian or Notion with bad extraction results.
+- Duplicate-aware capture so repeated URLs update existing records where possible.
+- Obsidian-first Markdown output for long-term portability.
+- Notion calendar database for browsing and resurfacing captured knowledge.
+- Local-only credentials through `config.ps1`, which is ignored by Git.
+- Minimal dependency surface: Python, PowerShell, `requests`, and `beautifulsoup4`.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI["Local capture UI"] --> API["Python HTTP server"]
+    API --> Extract["Web page extraction"]
+    API --> Summary["Zhipu summary"]
+    API --> Vault["Obsidian Markdown"]
+    API --> Calendar["Notion calendar DB"]
+    API --> Runtime["Ignored local runtime cache"]
+```
+
+For a deeper system breakdown, see [docs/architecture.md](docs/architecture.md).
 
 ## Requirements
 
@@ -22,7 +64,8 @@ This project is open source under the MIT License.
 - Python 3.10 or newer
 - An Obsidian vault
 - A Zhipu API key
-- A Notion integration token and a parent page/database location the integration can access
+- A Notion integration token
+- A Notion parent page where the capture database can be created or reused
 
 ## Quick Start
 
@@ -37,7 +80,7 @@ notepad .\config.ps1
 .\launch-url-capture.bat
 ```
 
-After launch, open:
+Open the local app:
 
 ```text
 http://127.0.0.1:8765
@@ -45,7 +88,7 @@ http://127.0.0.1:8765
 
 ## Configuration
 
-`config.ps1` is intentionally ignored by Git because it contains local paths and tokens. Start from `config.example.ps1` and fill in these values:
+`config.ps1` contains local paths and credentials, so it is intentionally excluded from Git. Start from `config.example.ps1`.
 
 | Variable | Purpose |
 | --- | --- |
@@ -61,22 +104,25 @@ http://127.0.0.1:8765
 Vault Capture writes to:
 
 - `<Obsidian Vault>/Clippings/Archive`
-- `<Obsidian Vault>/信息汇总/自动整理/<分类>/`
+- `<Obsidian Vault>/信息汇总/自动整理/<category>/`
 - A Notion database named `网页采集日历`
 
-The Notion database includes fields such as title, capture date, publish date, category, platform, site, source URL, tags, summary, and Obsidian path.
+The Notion database includes title, capture date, publish date, category, platform, site, source URL, tags, summary, and Obsidian path.
 
-## Project Files
+## Project Layout
 
-- `launch-url-capture.bat` starts the local app.
-- `start-url-capture.ps1` loads `config.ps1`, opens the browser, and runs the Python server.
-- `url_capture_server.py` serves the API and handles capture, summary, Obsidian, and Notion sync.
-- `url-capture.html` is the local capture UI.
-- `summary-schema.json` documents the summary shape.
-- `config.example.ps1` is the safe template for local configuration.
-- `requirements.txt` lists Python dependencies.
+| Path | Purpose |
+| --- | --- |
+| `url-capture.html` | Local capture interface |
+| `url_capture_server.py` | Local HTTP API, extraction, summary, Obsidian write, Notion sync |
+| `launch-url-capture.bat` | Windows launcher |
+| `start-url-capture.ps1` | Loads `config.ps1` and starts the server |
+| `config.example.ps1` | Safe configuration template |
+| `summary-schema.json` | Summary output shape |
+| `assets/` | README visual assets |
+| `docs/` | Architecture and operating notes |
 
-Older n8n exports and manual test payloads are treated as local artifacts and are ignored by Git until they are sanitized.
+Older n8n exports and manual test payloads are treated as local artifacts until they are sanitized for sharing.
 
 ## Health Check
 
@@ -86,19 +132,20 @@ With the server running:
 Invoke-RestMethod http://127.0.0.1:8765/api/health
 ```
 
-## GitHub Safety
+## Security
 
-Before publishing, confirm that these files are not staged or committed:
+This is a local personal workflow tool, not a hosted multi-user service. Keep it bound to `127.0.0.1` unless you have reviewed and hardened every write endpoint.
+
+Never commit:
 
 - `config.ps1`
 - `runtime/`
-- n8n workflow exports with local paths
-- Notion or API test payloads containing real ids or tokens
+- API keys or Notion tokens
+- local vault paths that reveal private machine structure
+- captured page history or personal note content
 
-If a real token is ever committed, rotate it immediately in the provider dashboard.
-
-See `SECURITY.md` for the full local-secret handling policy.
+See [SECURITY.md](SECURITY.md) for the full policy.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See [LICENSE](LICENSE).
