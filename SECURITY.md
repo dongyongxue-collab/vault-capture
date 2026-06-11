@@ -9,7 +9,7 @@ Never commit these files or values:
 - `config.ps1`
 - `.env` or other local secret files
 - `runtime/`
-- Zhipu API keys
+- LLM provider API keys
 - Notion integration tokens
 - GitHub personal access tokens
 - Local Obsidian vault paths that reveal private machine structure

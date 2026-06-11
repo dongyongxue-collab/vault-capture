@@ -26,12 +26,32 @@ NOTION_META_PATH = RUNTIME_ROOT / "notion_capture_meta.json"
 INDEX_PATH = RUNTIME_ROOT / "capture_index.json"
 
 DEFAULT_VAULT = Path.home() / "Documents" / "Obsidian Vault"
-DEFAULT_MODEL = "glm-5.1"
+DEFAULT_LLM_MODEL = "configured-model"
+LEGACY_ZHIPU_MODEL = "glm-5.1"
+LEGACY_ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 DEFAULT_PORT = 8765
 NOTION_VERSION = "2026-03-11"
-ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 NOTION_API_BASE = "https://api.notion.com/v1"
 PREVIEW_TTL_MINUTES = 30
+CONFIG_KEYS = [
+    "LLM_API_KEY",
+    "LLM_MODEL",
+    "LLM_API_URL",
+    "LLM_API_BASE_URL",
+    "LLM_PROVIDER",
+    "LLM_AUTH_HEADER",
+    "LLM_AUTH_SCHEME",
+    "LLM_RESPONSE_FORMAT",
+    "LLM_TEMPERATURE",
+    "LLM_EXTRA_HEADERS_JSON",
+    "LLM_EXTRA_BODY_JSON",
+    "ZHIPU_API_KEY",
+    "ZHIPU_MODEL",
+    "NOTION_API_TOKEN",
+    "NOTION_PARENT_PAGE_ID",
+    "OBSIDIAN_VAULT_PATH",
+    "URL_CAPTURE_PORT",
+]
 
 CATEGORY_CONFIG = {
     "ai_tools": {"label": "AI工具", "icon": "🤖", "color": "blue"},
@@ -74,17 +94,53 @@ def load_config(config_path: Path = CONFIG_PATH) -> dict[str, str]:
 
     text = config_path.read_text(encoding="utf-8")
     values: dict[str, str] = {}
-    for key in [
-        "ZHIPU_API_KEY",
-        "ZHIPU_MODEL",
-        "NOTION_API_TOKEN",
-        "NOTION_PARENT_PAGE_ID",
-        "OBSIDIAN_VAULT_PATH",
-        "URL_CAPTURE_PORT",
-    ]:
-        match = re.search(rf'{key}\s*=\s*"([^"]*)"', text)
-        values[key] = match.group(1) if match else ""
+    for key in CONFIG_KEYS:
+        match = re.search(rf"\$env:{re.escape(key)}\s*=\s*([\"'])(.*?)\1", text)
+        values[key] = match.group(2) if match else ""
     return values
+
+
+def config_value(config: dict[str, str], *keys: str, default: str = "") -> str:
+    for key in keys:
+        value = os.environ.get(key) or config.get(key, "")
+        if str(value).strip():
+            return str(value).strip()
+    return default
+
+
+def bool_config_value(config: dict[str, str], *keys: str, default: bool = True) -> bool:
+    raw = config_value(config, *keys)
+    if not raw:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off", "none", "disabled"}
+
+
+def summary_model(config: dict[str, str]) -> str:
+    model = config_value(config, "LLM_MODEL", "ZHIPU_MODEL")
+    if model:
+        return model
+    if config_value(config, "ZHIPU_API_KEY"):
+        return LEGACY_ZHIPU_MODEL
+    return DEFAULT_LLM_MODEL
+
+
+def summary_provider(config: dict[str, str]) -> str:
+    return config_value(config, "LLM_PROVIDER", default="openai-compatible")
+
+
+def summary_api_url(config: dict[str, str]) -> str:
+    explicit_url = config_value(config, "LLM_API_URL")
+    if explicit_url:
+        return explicit_url
+
+    base_url = config_value(config, "LLM_API_BASE_URL")
+    if base_url:
+        return base_url.rstrip("/") + "/chat/completions"
+
+    if config_value(config, "ZHIPU_API_KEY", "ZHIPU_MODEL"):
+        return LEGACY_ZHIPU_API_URL
+
+    raise ValueError("LLM_API_URL or LLM_API_BASE_URL is missing")
 
 
 def ensure_runtime() -> None:
@@ -338,50 +394,121 @@ def build_summary_prompt(source: dict[str, str], title_override: str, category_o
     return "\n".join(lines)
 
 
-def summarize_with_zhipu(prompt: str, config: dict[str, str]) -> dict[str, Any]:
-    api_key = os.environ.get("ZHIPU_API_KEY") or config.get("ZHIPU_API_KEY", "")
-    model = os.environ.get("ZHIPU_MODEL") or config.get("ZHIPU_MODEL", "") or DEFAULT_MODEL
-    if not api_key:
-        raise ValueError("ZHIPU_API_KEY is missing")
+def parse_json_config(value: str, label: str) -> dict[str, Any]:
+    if not value:
+        return {}
+    payload = json.loads(value)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return payload
 
-    response = requests.post(
-        ZHIPU_API_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You convert source material into structured JSON. "
-                        "Return valid JSON only and do not add markdown or commentary."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            "response_format": {"type": "json_object"},
-            "do_sample": False,
-            "thinking": {"type": "disabled"},
-        },
-        timeout=90,
+
+def build_llm_headers(config: dict[str, str]) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    api_key = config_value(config, "LLM_API_KEY", "ZHIPU_API_KEY")
+    auth_header = config_value(config, "LLM_AUTH_HEADER", default="Authorization")
+    auth_scheme = config_value(config, "LLM_AUTH_SCHEME", default="Bearer")
+
+    if auth_header.lower() not in {"", "none", "off", "disabled"}:
+        if not api_key:
+            raise ValueError("LLM_API_KEY is missing")
+        if auth_scheme.lower() in {"", "none", "off", "disabled"}:
+            headers[auth_header] = api_key
+        else:
+            headers[auth_header] = f"{auth_scheme} {api_key}".strip()
+
+    extra_headers = parse_json_config(
+        config_value(config, "LLM_EXTRA_HEADERS_JSON"),
+        "LLM_EXTRA_HEADERS_JSON",
     )
+    for key, value in extra_headers.items():
+        headers[str(key)] = str(value)
+    return headers
+
+
+def build_llm_body(prompt: str, config: dict[str, str], *, include_response_format: bool = True) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "model": summary_model(config),
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You convert source material into structured JSON. "
+                    "Return valid JSON only and do not add markdown or commentary."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+    }
+
+    temperature = config_value(config, "LLM_TEMPERATURE")
+    if temperature:
+        body["temperature"] = float(temperature)
+
+    response_format = config_value(config, "LLM_RESPONSE_FORMAT", default="json_object")
+    if include_response_format and response_format.lower() not in {"", "none", "off", "disabled"}:
+        if response_format.strip().startswith("{"):
+            body["response_format"] = json.loads(response_format)
+        else:
+            body["response_format"] = {"type": response_format}
+
+    extra_body = parse_json_config(config_value(config, "LLM_EXTRA_BODY_JSON"), "LLM_EXTRA_BODY_JSON")
+    body.update(extra_body)
+    return body
+
+
+def post_llm_chat_completion(prompt: str, config: dict[str, str]) -> requests.Response:
+    api_url = summary_api_url(config)
+    headers = build_llm_headers(config)
+    body = build_llm_body(prompt, config, include_response_format=True)
+    response_format_was_default = not config_value(config, "LLM_RESPONSE_FORMAT")
+
+    response = requests.post(api_url, headers=headers, json=body, timeout=90)
+    if (
+        response.status_code in {400, 422}
+        and "response_format" in body
+        and response_format_was_default
+    ):
+        fallback_body = build_llm_body(prompt, config, include_response_format=False)
+        response = requests.post(api_url, headers=headers, json=fallback_body, timeout=90)
+    return response
+
+
+def parse_summary_payload(content: str) -> dict[str, Any]:
+    text = content.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+        if not match:
+            raise
+        payload = json.loads(match.group(0))
+
+    if not isinstance(payload, dict):
+        raise ValueError("Summary response JSON must be an object")
+    return payload
+
+
+def summarize_with_llm(prompt: str, config: dict[str, str]) -> dict[str, Any]:
+    response = post_llm_chat_completion(prompt, config)
     response.raise_for_status()
     data = response.json()
     choices = data.get("choices") or []
     if not choices:
-        raise ValueError("Zhipu API returned no choices")
+        raise ValueError("Summary API returned no choices")
 
     message = choices[0].get("message") or {}
     content = message.get("content")
     if isinstance(content, list):
         content = "\n".join(item.get("text", "") for item in content if isinstance(item, dict))
     if not isinstance(content, str):
-        raise ValueError("Unsupported Zhipu response format")
+        raise ValueError("Unsupported summary API response format")
 
-    payload = json.loads(content)
+    payload = parse_summary_payload(content)
     required = {"title_clean", "summary", "key_points", "action_items", "tags", "category", "platform"}
     missing = required.difference(payload.keys())
     if missing:
@@ -1197,7 +1324,7 @@ def build_capture_payload(
             source["url"],
         )
 
-    summary = summarize_with_zhipu(
+    summary = summarize_with_llm(
         build_summary_prompt(source, title_override, category_override, notes),
         config,
     )
@@ -1431,7 +1558,8 @@ class CaptureHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "host": socket.gethostname(),
                     "vault_path": config.get("OBSIDIAN_VAULT_PATH") or str(DEFAULT_VAULT),
-                    "model": config.get("ZHIPU_MODEL") or DEFAULT_MODEL,
+                    "model": summary_model(config),
+                    "summary_provider": summary_provider(config),
                     "notion_calendar_url": meta.get("calendar_url", ""),
                 }
             )

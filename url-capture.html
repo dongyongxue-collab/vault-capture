@@ -835,7 +835,7 @@
       <div class="workspace-top">
         <div class="breadcrumbs">Capture / URL to Obsidian / Notion Calendar</div>
         <div class="top-actions">
-          <div class="top-chip">Model: <strong id="modelValue">glm-5.1</strong></div>
+          <div class="top-chip">Model: <strong id="modelValue">configured LLM</strong></div>
           <div class="top-chip">Destination: Notion Calendar Database</div>
         </div>
       </div>
@@ -1159,7 +1159,7 @@
         const response = await fetch("/api/health");
         const payload = await response.json();
         healthText.textContent = `本地服务已连接 · ${payload.host}`;
-        modelValue.textContent = payload.model || "glm-5.1";
+        modelValue.textContent = payload.model || "configured LLM";
       } catch (error) {
         healthText.textContent = "本地服务暂时不可达";
       }
