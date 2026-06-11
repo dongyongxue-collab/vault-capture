@@ -2,6 +2,8 @@
 
 Vault Capture is a local Windows workflow for collecting web pages into an Obsidian vault and a Notion calendar database. It runs a small local web page, extracts and summarizes a URL, previews the result, then writes the confirmed capture to Obsidian and Notion.
 
+![Vault Capture local UI screenshot](assets/vault-capture-screenshot.png)
+
 ## Status
 
 This project is open source under the MIT License.
