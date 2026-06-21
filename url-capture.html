@@ -526,6 +526,114 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .workflow-status {
+      display: none;
+      gap: 12px;
+      border: 1px solid rgba(55,53,47,.1);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fff, #fbfaf8);
+      padding: 14px 16px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+    }
+
+    .workflow-status.visible {
+      display: grid;
+    }
+
+    .workflow-top {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .workflow-orb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      background: #5168ff;
+      box-shadow: 0 0 0 7px rgba(81, 104, 255, 0.1);
+      margin-top: 2px;
+    }
+
+    .workflow-status.working .workflow-orb {
+      border: 3px solid rgba(81, 104, 255, 0.18);
+      border-top-color: #5168ff;
+      background: transparent;
+      box-shadow: none;
+      animation: spin .8s linear infinite;
+    }
+
+    .workflow-status.ready .workflow-orb {
+      background: #6b63e7;
+      box-shadow: 0 0 0 7px rgba(107, 99, 231, 0.1);
+    }
+
+    .workflow-status.done .workflow-orb {
+      background: #1f9a66;
+      box-shadow: 0 0 0 7px rgba(31, 154, 102, 0.12);
+    }
+
+    .workflow-status.error .workflow-orb {
+      background: #d64545;
+      box-shadow: 0 0 0 7px rgba(214, 69, 69, 0.1);
+    }
+
+    .workflow-copy strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .workflow-copy span {
+      display: block;
+      color: var(--notion-soft);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .workflow-step {
+      min-width: 0;
+      border: 1px solid rgba(55,53,47,.08);
+      border-radius: 12px;
+      background: #f6f5f3;
+      color: var(--notion-soft);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    .workflow-step.done {
+      background: rgba(31, 154, 102, 0.1);
+      color: #1f7a52;
+      border-color: rgba(31, 154, 102, 0.16);
+    }
+
+    .workflow-step.active {
+      background: rgba(81, 104, 255, 0.1);
+      color: #5168ff;
+      border-color: rgba(81, 104, 255, 0.18);
+    }
+
+    .workflow-step.error {
+      background: rgba(214, 69, 69, 0.1);
+      color: #b73535;
+      border-color: rgba(214, 69, 69, 0.18);
+    }
+
     .database-body {
       padding: 18px;
       display: grid;
@@ -723,6 +831,132 @@
       line-height: 1.8;
     }
 
+    .canvas-zone {
+      padding: 0 24px 24px;
+    }
+
+    .canvas-panel {
+      border-radius: 24px;
+      border: 1px solid rgba(55, 53, 47, 0.08);
+      background: var(--notion-paper);
+      box-shadow: var(--shadow-light);
+      overflow: hidden;
+    }
+
+    .canvas-head {
+      padding: 18px 22px;
+      border-bottom: 1px solid rgba(55, 53, 47, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .canvas-head h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -.03em;
+    }
+
+    .canvas-head span {
+      color: var(--notion-soft);
+      font-size: 12px;
+    }
+
+    .canvas-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .canvas-viewport {
+      height: 520px;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+      background:
+        linear-gradient(rgba(55, 53, 47, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(55, 53, 47, 0.055) 1px, transparent 1px),
+        #faf9f7;
+      background-size: 36px 36px;
+      touch-action: none;
+    }
+
+    .canvas-viewport.dragging {
+      cursor: grabbing;
+    }
+
+    .canvas-surface {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 2400px;
+      height: 1600px;
+      transform-origin: 0 0;
+    }
+
+    .canvas-empty {
+      position: absolute;
+      left: 40px;
+      top: 40px;
+      max-width: 360px;
+      color: var(--notion-soft);
+      font-size: 14px;
+      line-height: 1.8;
+      pointer-events: none;
+    }
+
+    .canvas-card {
+      position: absolute;
+      width: 280px;
+      border-radius: 18px;
+      border: 1px solid rgba(55,53,47,.1);
+      background: rgba(255,255,255,.95);
+      box-shadow: 0 18px 38px rgba(31, 28, 24, 0.12);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .canvas-card:active {
+      cursor: grabbing;
+    }
+
+    .canvas-card h3 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.35;
+      letter-spacing: -.02em;
+    }
+
+    .canvas-card p {
+      margin: 0;
+      color: var(--notion-soft);
+      font-size: 12px;
+      line-height: 1.65;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .canvas-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .canvas-card-meta span {
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: #f3f1ee;
+      color: var(--notion-soft);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
     @media (max-width: 1180px) {
       .shell {
         grid-template-columns: 1fr;
@@ -748,7 +982,8 @@
 
       .workspace-top,
       .hero,
-      .editor-zone {
+      .editor-zone,
+      .canvas-zone {
         padding-left: 14px;
         padding-right: 14px;
       }
@@ -765,6 +1000,10 @@
       .table-head,
       .table-row {
         grid-template-columns: 1fr;
+      }
+
+      .workflow-steps {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .top-actions {
@@ -908,6 +1147,7 @@
             </div>
 
             <div class="helper">现在会先提取预览，再确认写入。命中重复 URL 时，会直接更新已有 Obsidian 笔记和 Notion 条目。</div>
+            <div id="workflowStatus" class="workflow-status" aria-live="polite"></div>
             <div id="loadingRow"></div>
           </div>
         </article>
@@ -940,6 +1180,23 @@
           </div>
         </aside>
       </section>
+
+      <section id="canvasZone" class="canvas-zone">
+        <article class="canvas-panel">
+          <div class="canvas-head">
+            <div>
+              <h2>Knowledge Canvas</h2>
+              <span>把网页、视频、音频和文档采集卡片放到同一张项目画布里</span>
+            </div>
+            <div class="canvas-actions">
+              <button id="canvasResetButton" class="button button-secondary" type="button">重置视图</button>
+            </div>
+          </div>
+          <div id="canvasViewport" class="canvas-viewport">
+            <div id="canvasSurface" class="canvas-surface"></div>
+          </div>
+        </article>
+      </section>
     </section>
   </main>
 
@@ -952,14 +1209,28 @@
     const syncButton = document.getElementById("syncButton");
     const fillDemoButton = document.getElementById("fillDemoButton");
     const clearButton = document.getElementById("clearButton");
+    const workflowStatus = document.getElementById("workflowStatus");
     const loadingRow = document.getElementById("loadingRow");
     const resultRoot = document.getElementById("resultRoot");
     const databaseRows = document.getElementById("databaseRows");
     const recentRoot = document.getElementById("recentRoot");
     const healthText = document.getElementById("healthText");
     const modelValue = document.getElementById("modelValue");
+    const canvasViewport = document.getElementById("canvasViewport");
+    const canvasSurface = document.getElementById("canvasSurface");
+    const canvasResetButton = document.getElementById("canvasResetButton");
     let currentPreviewId = "";
     let currentPreviewFingerprint = "";
+    const canvasState = {
+      cards: [],
+      panX: 0,
+      panY: 0,
+      scale: 1,
+      draggingCard: null,
+      panning: false,
+      lastX: 0,
+      lastY: 0,
+    };
 
     function escapeHtml(value) {
       return String(value || "")
@@ -967,6 +1238,10 @@
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;");
+    }
+
+    function payloadError(payload, fallback) {
+      return [payload?.error || fallback, payload?.hint || ""].filter(Boolean).join(" ");
     }
 
     function getFormPayload() {
@@ -1031,6 +1306,59 @@
       loadingRow.innerHTML = `<div class="loading"><span class="spinner"></span><span>${escapeHtml(message || "正在抓取网页、生成总结，并同步到 Obsidian 与 Notion...")}</span></div>`;
     }
 
+    function renderWorkflowStatus(state, title, detail, steps = []) {
+      const icon = state === "done" ? "✓" : state === "error" ? "!" : state === "ready" ? "→" : "";
+      const stepMarkup = steps.length
+        ? `<div class="workflow-steps">${steps.map((step) => `
+            <div class="workflow-step ${escapeHtml(step.state || "")}">${escapeHtml(step.label || "")}</div>
+          `).join("")}</div>`
+        : "";
+      workflowStatus.className = `workflow-status visible ${state}`;
+      workflowStatus.innerHTML = `
+        <div class="workflow-top">
+          <span class="workflow-orb">${escapeHtml(icon)}</span>
+          <div class="workflow-copy">
+            <strong>${escapeHtml(title)}</strong>
+            <span>${escapeHtml(detail || "")}</span>
+          </div>
+        </div>
+        ${stepMarkup}
+      `;
+    }
+
+    function clearWorkflowStatus() {
+      workflowStatus.className = "workflow-status";
+      workflowStatus.innerHTML = "";
+    }
+
+    const previewWorkingSteps = [
+      { label: "识别来源", state: "done" },
+      { label: "提取内容", state: "active" },
+      { label: "模型总结", state: "active" },
+      { label: "等待确认", state: "" },
+    ];
+
+    const previewReadySteps = [
+      { label: "识别来源", state: "done" },
+      { label: "提取内容", state: "done" },
+      { label: "模型总结", state: "done" },
+      { label: "等待确认", state: "active" },
+    ];
+
+    const syncWorkingSteps = [
+      { label: "预览已生成", state: "done" },
+      { label: "写入 Obsidian", state: "active" },
+      { label: "写入 Notion", state: "active" },
+      { label: "更新画布", state: "active" },
+    ];
+
+    const syncDoneSteps = [
+      { label: "预览已生成", state: "done" },
+      { label: "写入 Obsidian", state: "done" },
+      { label: "写入 Notion", state: "done" },
+      { label: "更新画布", state: "done" },
+    ];
+
     function renderResult(payload) {
       if (!payload || !payload.ok) {
         renderDatabaseRow(null);
@@ -1067,6 +1395,9 @@
       if (payload.source_url) {
         links.push(`<a class="link-button" href="${escapeHtml(payload.source_url)}" target="_blank" rel="noreferrer">回到原文</a>`);
       }
+      if (payload.media_url) {
+        links.push(`<a class="link-button" href="${escapeHtml(payload.media_url)}" target="_blank" rel="noreferrer">Open media</a>`);
+      }
 
       resultRoot.innerHTML = `
         <article class="result-card">
@@ -1079,6 +1410,8 @@
           <div class="result-meta">
             <span class="meta-pill">${escapeHtml(payload.category)}</span>
             <span class="meta-pill">${escapeHtml(payload.platform)}</span>
+            <span class="meta-pill">${escapeHtml(payload.content_type_label || payload.content_type || "Web Page")}</span>
+            <span class="meta-pill">${escapeHtml(payload.processing_status || "page_text_extracted")}</span>
             <span class="meta-pill">${escapeHtml(payload.captured_date || payload.captured_at)}</span>
             <span class="meta-pill">发布：${escapeHtml(payload.published_date || "未识别")}</span>
             ${tags}
@@ -1148,6 +1481,131 @@
       `).join("");
     }
 
+    function applyCanvasTransform() {
+      canvasSurface.style.transform = `translate(${canvasState.panX}px, ${canvasState.panY}px) scale(${canvasState.scale})`;
+    }
+
+    function renderCanvas(cards = []) {
+      canvasState.cards = cards;
+      if (!cards.length) {
+        canvasSurface.innerHTML = `
+          <div class="canvas-empty">
+            <strong>画布还没有卡片。</strong><br />
+            同步一条网页、视频、音频或文档后，这里会自动生成知识卡片。拖动卡片可以整理项目结构，滚轮可以缩放画布。
+          </div>
+        `;
+        applyCanvasTransform();
+        return;
+      }
+
+      canvasSurface.innerHTML = cards.map((card) => `
+        <article class="canvas-card" data-card-id="${escapeHtml(card.id)}" style="left:${Number(card.x) || 0}px; top:${Number(card.y) || 0}px;">
+          <div class="canvas-card-meta">
+            <span>${escapeHtml(card.content_type_label || card.content_type || "Web Page")}</span>
+            <span>${escapeHtml(card.processing_status || "page_text_extracted")}</span>
+          </div>
+          <h3>${escapeHtml(card.title || "Untitled capture")}</h3>
+          <p>${escapeHtml(card.summary || "No summary yet.")}</p>
+          <div class="canvas-card-meta">
+            <span>${escapeHtml(card.category || "Uncategorized")}</span>
+            <span>${escapeHtml(card.media_provider || card.platform || "Source")}</span>
+          </div>
+        </article>
+      `).join("");
+      applyCanvasTransform();
+    }
+
+    async function loadCanvas() {
+      try {
+        const response = await fetch("/api/canvas");
+        const payload = await response.json();
+        if (payload.ok) {
+          renderCanvas(payload.cards || []);
+        }
+      } catch (error) {
+        renderCanvas([]);
+      }
+    }
+
+    async function saveCanvasPositions() {
+      const cards = canvasState.cards.map((card) => ({ id: card.id, x: card.x, y: card.y }));
+      try {
+        await fetch("/api/canvas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cards }),
+        });
+      } catch (error) {
+        console.warn("Canvas position save failed", error);
+      }
+    }
+
+    function findCanvasCard(id) {
+      return canvasState.cards.find((card) => String(card.id) === String(id));
+    }
+
+    canvasViewport.addEventListener("pointerdown", (event) => {
+      const cardElement = event.target.closest(".canvas-card");
+      canvasViewport.setPointerCapture(event.pointerId);
+      canvasState.lastX = event.clientX;
+      canvasState.lastY = event.clientY;
+
+      if (cardElement) {
+        const card = findCanvasCard(cardElement.dataset.cardId);
+        if (!card) return;
+        canvasState.draggingCard = { card, element: cardElement };
+        return;
+      }
+
+      canvasState.panning = true;
+      canvasViewport.classList.add("dragging");
+    });
+
+    canvasViewport.addEventListener("pointermove", (event) => {
+      const dx = event.clientX - canvasState.lastX;
+      const dy = event.clientY - canvasState.lastY;
+      canvasState.lastX = event.clientX;
+      canvasState.lastY = event.clientY;
+
+      if (canvasState.draggingCard) {
+        const { card, element } = canvasState.draggingCard;
+        card.x = Math.round((Number(card.x) || 0) + dx / canvasState.scale);
+        card.y = Math.round((Number(card.y) || 0) + dy / canvasState.scale);
+        element.style.left = `${card.x}px`;
+        element.style.top = `${card.y}px`;
+        return;
+      }
+
+      if (canvasState.panning) {
+        canvasState.panX += dx;
+        canvasState.panY += dy;
+        applyCanvasTransform();
+      }
+    });
+
+    canvasViewport.addEventListener("pointerup", () => {
+      if (canvasState.draggingCard) {
+        saveCanvasPositions();
+      }
+      canvasState.draggingCard = null;
+      canvasState.panning = false;
+      canvasViewport.classList.remove("dragging");
+    });
+
+    canvasViewport.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const nextScale = Math.min(1.8, Math.max(0.45, canvasState.scale + (event.deltaY > 0 ? -0.08 : 0.08)));
+      canvasState.scale = Number(nextScale.toFixed(2));
+      applyCanvasTransform();
+    }, { passive: false });
+
+    canvasResetButton.addEventListener("click", () => {
+      canvasState.panX = 0;
+      canvasState.panY = 0;
+      canvasState.scale = 1;
+      applyCanvasTransform();
+    });
+
     async function loadRecent() {
       const response = await fetch("/api/recent");
       const payload = await response.json();
@@ -1169,10 +1627,17 @@
       const form = getFormPayload();
       if (!form.url) {
         renderResult({ ok: false, error: "先输入一个网页地址。" });
+        renderWorkflowStatus("error", "缺少网址", "先粘贴网页、视频、音频或文档地址，再提取预览。", [
+          { label: "识别来源", state: "error" },
+          { label: "提取内容", state: "" },
+          { label: "模型总结", state: "" },
+          { label: "等待确认", state: "" },
+        ]);
         return;
       }
 
       invalidatePreview();
+      renderWorkflowStatus("working", "正在提取预览", "正在识别来源、提取可用内容，并调用模型生成摘要。", previewWorkingSteps);
       renderLoading(true, "正在抓取网页并生成预览...");
       try {
         const response = await fetch("/api/preview", {
@@ -1183,14 +1648,21 @@
         const payload = await response.json();
         renderResult(payload);
         if (!response.ok) {
-          throw new Error(payload.error || "预览失败");
+          throw new Error(payloadError(payload, "预览失败"));
         }
         currentPreviewId = payload.preview_id || "";
         currentPreviewFingerprint = computeFingerprint(form);
         syncButton.disabled = !currentPreviewId;
         syncButton.textContent = payload.duplicate_found ? "确认更新" : "确认同步";
+        renderWorkflowStatus("ready", "预览完成，等待确认", "现在还没有写入。点击确认同步后，才会落地到 Obsidian、Notion 和 Knowledge Canvas。", previewReadySteps);
       } catch (error) {
         renderResult({ ok: false, error: error.message || "预览失败" });
+        renderWorkflowStatus("error", "预览失败", error.message || "网页抓取或模型总结没有完成。", [
+          { label: "识别来源", state: "done" },
+          { label: "提取内容", state: "error" },
+          { label: "模型总结", state: "error" },
+          { label: "等待确认", state: "" },
+        ]);
       } finally {
         renderLoading(false);
       }
@@ -1207,6 +1679,7 @@
         return;
       }
 
+      renderWorkflowStatus("working", "正在同步落地", "正在写入 Obsidian、Notion，并更新 Knowledge Canvas。等到完成状态出现后再关闭页面。", syncWorkingSteps);
       renderLoading(true, "正在写入 Obsidian 与 Notion...");
       try {
         const response = await fetch("/api/capture", {
@@ -1217,12 +1690,20 @@
         const payload = await response.json();
         renderResult(payload);
         if (!response.ok) {
-          throw new Error(payload.error || "同步失败");
+          throw new Error(payloadError(payload, "同步失败"));
         }
         invalidatePreview();
         await loadRecent();
+        await loadCanvas();
+        renderWorkflowStatus("done", "同步完成", "已确认写入 Obsidian、Notion，并更新 Knowledge Canvas。", syncDoneSteps);
       } catch (error) {
         renderResult({ ok: false, error: error.message || "同步失败" });
+        renderWorkflowStatus("error", "同步失败", error.message || "写入没有确认成功。", [
+          { label: "预览已生成", state: "done" },
+          { label: "写入 Obsidian", state: "error" },
+          { label: "写入 Notion", state: "error" },
+          { label: "更新画布", state: "error" },
+        ]);
       } finally {
         renderLoading(false);
       }
@@ -1236,6 +1717,7 @@
       categoryInput.value = "ai_tools";
       notesInput.value = "请更关注融资、估值和行业信号。";
       invalidatePreview();
+      clearWorkflowStatus();
       renderEmptyState("示例已填入，可以先点“提取预览”。");
       urlInput.focus();
     });
@@ -1245,6 +1727,7 @@
       categoryInput.value = "";
       notesInput.value = "";
       invalidatePreview();
+      clearWorkflowStatus();
       renderEmptyState();
       urlInput.focus();
     });
@@ -1252,6 +1735,7 @@
       element.addEventListener("input", () => {
         if (currentPreviewId) {
           invalidatePreview();
+          clearWorkflowStatus();
           renderEmptyState("输入内容已变化，请重新提取预览。");
         }
       });
@@ -1259,6 +1743,7 @@
     categoryInput.addEventListener("change", () => {
       if (currentPreviewId) {
         invalidatePreview();
+        clearWorkflowStatus();
         renderEmptyState("输入内容已变化，请重新提取预览。");
       }
     });
@@ -1271,6 +1756,7 @@
 
     loadHealth();
     loadRecent();
+    loadCanvas();
     renderDatabaseRow(null);
   </script>
 </body>

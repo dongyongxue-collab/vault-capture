@@ -39,20 +39,22 @@
     "category": {
       "type": "string",
       "enum": [
-        "AI工具",
-        "产品思考",
-        "视频笔记",
-        "资料库",
-        "行业观察"
+        "ai_tools",
+        "product_insights",
+        "video_notes",
+        "reference_library",
+        "industry_observations"
       ]
     },
     "platform": {
       "type": "string",
       "enum": [
-        "网站",
-        "视频",
-        "公众号",
-        "文档"
+        "website",
+        "video",
+        "audio",
+        "wechat",
+        "document",
+        "image"
       ]
     }
   }

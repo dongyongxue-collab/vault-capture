@@ -47,10 +47,18 @@ The summarization layer is provider-agnostic. It speaks the OpenAI-compatible Ch
 - Review-before-write capture flow.
 - Duplicate-aware URL capture and update behavior.
 - Provider-neutral LLM summary API.
+- Online media recognition for web pages, videos, audio, documents, and images.
+- Local Knowledge Canvas for arranging synced capture cards.
 - Obsidian-first Markdown output.
 - Notion calendar database sync.
 - Local-only `config.ps1` for API keys and vault paths.
 - Minimal dependency surface: Python, PowerShell, `requests`, and `beautifulsoup4`.
+
+## Media and Canvas / 多媒体与画布
+
+Vault Capture now treats URL capture as a broader source intake layer. It can classify common online video, audio, document, image, and standard web page links before summarization. For video and audio pages, it summarizes only the metadata and page text that can be extracted locally unless a transcript is explicitly present, so the workflow stays traceable and avoids invented media details.
+
+Every confirmed capture also creates or updates a card in the local Knowledge Canvas stored at `runtime/canvas_board.json`. The canvas is a project organization layer for arranging research items, media notes, and source cards after they have been synced to Obsidian and Notion.
 
 ## Architecture / 架构
 

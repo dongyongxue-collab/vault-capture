@@ -11,6 +11,7 @@ flowchart LR
     Extractor["Page extraction<br/>requests + BeautifulSoup"]
     Summarizer["Chinese summary<br/>Provider-neutral LLM API"]
     Runtime["Local runtime cache<br/>runtime/"]
+    Canvas["Knowledge Canvas<br/>runtime/canvas_board.json"]
     Obsidian["Obsidian vault<br/>Archive + formal notes"]
     Notion["Notion calendar database<br/>网页采集日历"]
 
@@ -18,6 +19,7 @@ flowchart LR
     Server --> Extractor
     Server --> Summarizer
     Server --> Runtime
+    Server --> Canvas
     Server --> Obsidian
     Server --> Notion
 ```
@@ -50,6 +52,7 @@ flowchart LR
 | Server | `url_capture_server.py` | HTTP API, extraction, LLM summarization, Obsidian write, Notion sync |
 | Config template | `config.example.ps1` | Safe example for local secrets and paths |
 | Runtime data | `runtime/` | Ignored local cache, history, and Notion metadata |
+| Knowledge Canvas | `runtime/canvas_board.json` | Local card layout for arranging synced captures by project |
 
 ## Security Boundary
 
