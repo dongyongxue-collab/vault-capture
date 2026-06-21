@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 import requests
@@ -24,6 +24,7 @@ RUNTIME_ROOT = WORKFLOW_ROOT / "runtime"
 HISTORY_PATH = RUNTIME_ROOT / "url_capture_history.json"
 NOTION_META_PATH = RUNTIME_ROOT / "notion_capture_meta.json"
 INDEX_PATH = RUNTIME_ROOT / "capture_index.json"
+CANVAS_PATH = RUNTIME_ROOT / "canvas_board.json"
 
 DEFAULT_VAULT = Path.home() / "Documents" / "Obsidian Vault"
 DEFAULT_LLM_MODEL = "configured-model"
@@ -66,6 +67,21 @@ PLATFORM_CONFIG = {
     "video": {"label": "视频", "color": "purple"},
     "wechat": {"label": "公众号", "color": "green"},
     "document": {"label": "文档", "color": "gray"},
+}
+
+PLATFORM_CONFIG.update(
+    {
+        "audio": {"label": "Audio / 音频", "color": "yellow"},
+        "image": {"label": "Image / 图片", "color": "pink"},
+    }
+)
+
+CONTENT_TYPE_CONFIG = {
+    "webpage": {"label": "Web Page / 网页", "color": "blue"},
+    "online_video": {"label": "Online Video / 在线视频", "color": "purple"},
+    "online_audio": {"label": "Online Audio / 在线音频", "color": "yellow"},
+    "document": {"label": "Document / 文档", "color": "gray"},
+    "image": {"label": "Image / 图片", "color": "pink"},
 }
 
 CATEGORY_LABELS = {key: value["label"] for key, value in CATEGORY_CONFIG.items()}
@@ -193,6 +209,112 @@ def extract_site_label(hostname: str) -> str:
     return hostname
 
 
+def infer_media_provider(url: str, site: str) -> str:
+    haystack = f"{url} {site}".lower()
+    providers = [
+        (r"youtube|youtu\.be", "YouTube"),
+        (r"bilibili|b23\.tv", "Bilibili"),
+        (r"douyin|iesdouyin", "Douyin"),
+        (r"tiktok", "TikTok"),
+        (r"vimeo", "Vimeo"),
+        (r"kuaishou", "Kuaishou"),
+        (r"xiaohongshu|xhslink", "Xiaohongshu"),
+        (r"spotify", "Spotify"),
+        (r"soundcloud", "SoundCloud"),
+        (r"podcasts\.apple|podcasts\.google|podcast", "Podcast"),
+        (r"ximalaya|xima", "Ximalaya"),
+        (r"weixin|mp\.weixin", "WeChat"),
+    ]
+    for pattern, label in providers:
+        if re.search(pattern, haystack):
+            return label
+    return site or "unknown"
+
+
+def infer_content_type(url: str, site: str, og_type: str = "", content_type: str = "", media_url: str = "") -> str:
+    haystack = f"{url} {site} {og_type} {content_type} {media_url}".lower()
+    path = urlparse(url).path.lower()
+    if re.search(r"\.(mp4|mov|m4v|webm|mkv|avi)(?:$|\?)", path):
+        return "online_video"
+    if re.search(r"\.(mp3|wav|m4a|aac|flac|ogg)(?:$|\?)", path):
+        return "online_audio"
+    if re.search(r"\.(jpg|jpeg|png|webp|gif|bmp|svg)(?:$|\?)", path):
+        return "image"
+    if re.search(r"\.(pdf|doc|docx|ppt|pptx|xls|xlsx)(?:$|\?)", path) or "application/pdf" in haystack:
+        return "document"
+    if re.search(r"og:video|video|youtube|youtu\.be|bilibili|douyin|tiktok|vimeo|kuaishou", haystack):
+        return "online_video"
+    if re.search(r"og:audio|audio|podcast|spotify|soundcloud|ximalaya", haystack):
+        return "online_audio"
+    if re.search(r"image/", haystack):
+        return "image"
+    return "webpage"
+
+
+def platform_from_content_type(content_type: str, fallback: str = "website") -> str:
+    mapping = {
+        "online_video": "video",
+        "online_audio": "audio",
+        "document": "document",
+        "image": "image",
+        "webpage": fallback or "website",
+    }
+    return mapping.get(content_type, fallback or "website")
+
+
+def media_processing_status(content_type: str, content: str, description: str) -> str:
+    text_len = len(normalize_whitespace(content))
+    if content_type in {"online_video", "online_audio"}:
+        if text_len > max(900, len(description) + 500):
+            return "metadata_plus_page_text"
+        return "metadata_only_needs_transcript"
+    if content_type in {"document", "image"} and text_len < 400:
+        return "metadata_only"
+    return "page_text_extracted"
+
+
+def title_from_url(url: str, site: str) -> str:
+    parsed = urlparse(url)
+    name = unquote(Path(parsed.path).name or "").strip()
+    if name:
+        name = re.sub(r"\.[A-Za-z0-9]{2,6}$", "", name)
+        name = re.sub(r"[-_]+", " ", name)
+        return normalize_whitespace(name) or site
+    return site or "Untitled source"
+
+
+def build_direct_source(url: str, site: str, content_type: str) -> dict[str, str]:
+    title = title_from_url(url, site)
+    media_provider = infer_media_provider(url, site)
+    content_type_label = CONTENT_TYPE_CONFIG.get(content_type, {}).get("label", content_type)
+    content = "\n".join(
+        [
+            f"Direct source link: {url}",
+            f"Content type: {content_type_label}",
+            f"Media provider: {media_provider}",
+            "Extraction status: metadata_only",
+            "Transcript/text note: the file itself was not downloaded or transcribed in this preview step.",
+        ]
+    )
+    return {
+        "title": title,
+        "site": site,
+        "description": "",
+        "author": "",
+        "cover_image": url if content_type == "image" else "",
+        "published_at": "",
+        "content_type": content_type,
+        "content_type_label": content_type_label,
+        "media_provider": media_provider,
+        "media_url": url if content_type in {"online_video", "online_audio", "image"} else "",
+        "processing_status": "metadata_only",
+        "og_type": "",
+        "response_content_type": "",
+        "content": content,
+        "url": url,
+    }
+
+
 def score_candidate(node: Any) -> tuple[int, str]:
     pieces: list[str] = []
     paragraph_count = 0
@@ -209,6 +331,15 @@ def score_candidate(node: Any) -> tuple[int, str]:
 
 
 def extract_article(url: str) -> dict[str, str]:
+    parsed = urlparse(url)
+    site = extract_site_label(parsed.netloc)
+    direct_content_type = infer_content_type(url, site)
+    if direct_content_type != "webpage" and re.search(
+        r"\.(mp4|mov|m4v|webm|mkv|avi|mp3|wav|m4a|aac|flac|ogg|jpg|jpeg|png|webp|gif|bmp|svg|pdf|doc|docx|ppt|pptx|xls|xlsx)(?:$|\?)",
+        parsed.path.lower(),
+    ):
+        return build_direct_source(url, site, direct_content_type)
+
     response = requests.get(url, headers=REQUEST_HEADERS, timeout=25)
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding or "utf-8"
@@ -219,8 +350,6 @@ def extract_article(url: str) -> dict[str, str]:
     ):
         tag.decompose()
 
-    parsed = urlparse(url)
-    site = extract_site_label(parsed.netloc)
     title = (
         first_meta(soup, ("property", "og:title"), ("name", "twitter:title"))
         or normalize_whitespace(soup.title.get_text(" ", strip=True) if soup.title else "")
@@ -239,6 +368,16 @@ def extract_article(url: str) -> dict[str, str]:
         first_meta(soup, ("property", "article:published_time"), ("name", "publish_date"))
         or parse_datetime(first_meta(soup, ("name", "pubdate"), ("name", "date")))
     )
+    og_type = first_meta(soup, ("property", "og:type"), ("name", "twitter:card"))
+    media_url = first_meta(
+        soup,
+        ("property", "og:video"),
+        ("property", "og:video:url"),
+        ("property", "og:audio"),
+        ("property", "og:audio:url"),
+        ("name", "twitter:player"),
+    )
+    response_content_type = str(response.headers.get("Content-Type") or "").split(";")[0].lower()
 
     candidates: list[Any] = []
     seen_ids: set[int] = set()
@@ -277,6 +416,23 @@ def extract_article(url: str) -> dict[str, str]:
     if description and description not in content:
         content = f"{description}\n\n{content}".strip()
 
+    content_type = infer_content_type(url, site, og_type, response_content_type, media_url)
+    media_provider = infer_media_provider(url, site)
+    processing_status = media_processing_status(content_type, content, description)
+    media_context = [
+        f"Content type: {CONTENT_TYPE_CONFIG.get(content_type, {}).get('label', content_type)}",
+        f"Media provider: {media_provider}",
+        f"Extraction status: {processing_status}",
+    ]
+    if media_url:
+        media_context.append(f"Media URL: {media_url}")
+    if content_type in {"online_video", "online_audio"}:
+        media_context.append(
+            "Transcript note: no full transcript is available unless it appears in the extracted page text."
+        )
+    if media_context and "\n".join(media_context) not in content:
+        content = f"{content}\n\n" + "\n".join(media_context)
+
     return {
         "title": title,
         "site": site,
@@ -284,25 +440,38 @@ def extract_article(url: str) -> dict[str, str]:
         "author": author,
         "cover_image": cover_image,
         "published_at": published_at,
+        "content_type": content_type,
+        "content_type_label": CONTENT_TYPE_CONFIG.get(content_type, {}).get("label", content_type),
+        "media_provider": media_provider,
+        "media_url": media_url,
+        "processing_status": processing_status,
+        "og_type": og_type,
+        "response_content_type": response_content_type,
         "content": content,
         "url": url,
     }
 
 
-def infer_platform(url: str, site: str) -> str:
+def infer_platform(url: str, site: str, content_type: str = "") -> str:
+    if content_type:
+        inferred = platform_from_content_type(content_type)
+        if inferred != "website":
+            return inferred
     haystack = f"{url} {site}".lower()
-    if re.search(r"youtube|bilibili|douyin|tiktok|vimeo", haystack):
+    if re.search(r"youtube|youtu\.be|bilibili|douyin|tiktok|vimeo|kuaishou|xiaohongshu|xhslink", haystack):
         return "video"
+    if re.search(r"spotify|soundcloud|podcast|ximalaya|audio", haystack):
+        return "audio"
     if re.search(r"mp\.weixin|wechat", haystack):
         return "wechat"
-    if re.search(r"github|docs|readthedocs|notion|pdf", haystack):
+    if re.search(r"github|docs|readthedocs|notion|pdf|docx|pptx|xlsx", haystack):
         return "document"
     return "website"
 
 
 def infer_category(platform_hint: str, title: str, content: str, url: str) -> str:
     haystack = f"{title}\n{content}\n{url}".lower()
-    if platform_hint == "video":
+    if platform_hint in {"video", "audio"}:
         return "video_notes"
     if re.search(r"ai|agent|llm|prompt|openai|anthropic|cursor|codex|模型|智能体", haystack):
         return "ai_tools"
@@ -348,6 +517,12 @@ def normalize_platform(value: str, fallback: str) -> str:
         "document": "document",
         "文档": "document",
     }
+    if raw in {"online_video"}:
+        return "video"
+    if raw in {"audio", "online_audio", "音频"}:
+        return "audio"
+    if raw in {"image", "图片"}:
+        return "image"
     return aliases.get(raw, "website")
 
 
@@ -369,7 +544,8 @@ def build_summary_prompt(source: dict[str, str], title_override: str, category_o
         "title_clean can preserve the source language, but keep it short and filename-safe.",
         "summary, key_points, action_items, and tags must be in concise Simplified Chinese.",
         "category must be one of: ai_tools, product_insights, video_notes, reference_library, industry_observations.",
-        "platform must be one of: website, video, wechat, document.",
+        "platform must be one of: website, video, audio, wechat, document, image.",
+        "For online video or audio, use only extracted page text, metadata, title, description, and user notes unless a transcript is explicitly present.",
         "summary should be 3-5 Chinese sentences.",
         "key_points should have 3-5 items.",
         "action_items should have 0-3 items.",
@@ -380,10 +556,15 @@ def build_summary_prompt(source: dict[str, str], title_override: str, category_o
         f"Source URL: {source['url']}",
         f"Site: {source['site']}",
         f"Platform hint: {source['platform_hint']}",
+        f"Content type: {source.get('content_type_label') or source.get('content_type', 'webpage')}",
+        f"Media provider: {source.get('media_provider') or 'N/A'}",
+        f"Extraction status: {source.get('processing_status') or 'N/A'}",
         f"Suggested category: {category_override or source['suggested_category']}",
         f"Description: {source['description'] or 'N/A'}",
         f"Author: {source['author'] or 'N/A'}",
     ]
+    if source.get("media_url"):
+        lines.append(f"Media URL: {source['media_url']}")
     if source.get("published_at"):
         lines.append(f"Published time: {source['published_at']}")
     if title_override:
@@ -616,6 +797,12 @@ def upsert_capture_index(entry: dict[str, Any]) -> None:
             "captured_date": entry.get("captured_date", ""),
             "published_at": entry.get("published_at", ""),
             "published_date": entry.get("published_date", ""),
+            "content_type": entry.get("content_type", ""),
+            "content_type_label": entry.get("content_type_label", ""),
+            "media_provider": entry.get("media_provider", ""),
+            "media_url": entry.get("media_url", ""),
+            "processing_status": entry.get("processing_status", ""),
+            "canvas_path": entry.get("canvas_path", ""),
             "last_synced_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         },
     )
@@ -784,6 +971,27 @@ def build_database_payload(parent_page_id: str) -> dict[str, Any]:
                 "标签": {"multi_select": {}},
                 "摘要": {"rich_text": {}},
                 "Obsidian": {"rich_text": {}},
+                "Content Type": {
+                    "select": {
+                        "options": [
+                            {"name": config["label"], "color": config["color"]}
+                            for config in CONTENT_TYPE_CONFIG.values()
+                        ]
+                    }
+                },
+                "Processing": {
+                    "select": {
+                        "options": [
+                            {"name": "page_text_extracted", "color": "green"},
+                            {"name": "metadata_plus_page_text", "color": "blue"},
+                            {"name": "metadata_only", "color": "yellow"},
+                            {"name": "metadata_only_needs_transcript", "color": "red"},
+                        ]
+                    }
+                },
+                "Media Provider": {"rich_text": {}},
+                "Media URL": {"url": {}},
+                "Canvas": {"rich_text": {}},
             }
         },
     }
@@ -816,6 +1024,32 @@ def ensure_data_source_schema(token: str, data_source_id: str) -> None:
         patch["收录日期"] = {"date": {}}
     if "发布日期" not in properties:
         patch["发布日期"] = {"date": {}}
+    if "Content Type" not in properties:
+        patch["Content Type"] = {
+            "select": {
+                "options": [
+                    {"name": config["label"], "color": config["color"]}
+                    for config in CONTENT_TYPE_CONFIG.values()
+                ]
+            }
+        }
+    if "Processing" not in properties:
+        patch["Processing"] = {
+            "select": {
+                "options": [
+                    {"name": "page_text_extracted", "color": "green"},
+                    {"name": "metadata_plus_page_text", "color": "blue"},
+                    {"name": "metadata_only", "color": "yellow"},
+                    {"name": "metadata_only_needs_transcript", "color": "red"},
+                ]
+            }
+        }
+    if "Media Provider" not in properties:
+        patch["Media Provider"] = {"rich_text": {}}
+    if "Media URL" not in properties:
+        patch["Media URL"] = {"url": {}}
+    if "Canvas" not in properties:
+        patch["Canvas"] = {"rich_text": {}}
     if patch:
         notion_request("PATCH", f"/data_sources/{data_source_id}", token, payload={"properties": patch})
 
@@ -933,6 +1167,10 @@ def build_archive_markdown(source: dict[str, str], archive_title: str) -> str:
             f"author: {yaml_string(source.get('author', ''))}",
             f"cover_image: {yaml_string(source.get('cover_image', ''))}",
             f"published_at: {yaml_string(source.get('published_at', ''))}",
+            f"content_type: {yaml_string(source.get('content_type', 'webpage'))}",
+            f"media_provider: {yaml_string(source.get('media_provider', ''))}",
+            f"media_url: {yaml_string(source.get('media_url', ''))}",
+            f"processing_status: {yaml_string(source.get('processing_status', ''))}",
             f"clipped_at: {yaml_string(source['clipped_at'])}",
             'status: "已归档"',
             "---",
@@ -969,6 +1207,13 @@ def build_final_markdown(
         note_lines = ["", "## 我的补充", notes.strip()]
 
     published_line = f"> 发布：{source['published_at']}" if source.get("published_at") else ""
+    media_lines = [
+        f"- Content type: {source.get('content_type_label') or source.get('content_type', 'webpage')}",
+        f"- Media provider: {source.get('media_provider', '') or source.get('site', '')}",
+        f"- Processing: {source.get('processing_status', '') or 'page_text_extracted'}",
+    ]
+    if source.get("media_url"):
+        media_lines.append(f"- Media URL: {source['media_url']}")
     return "\n".join(
         [
             "---",
@@ -980,6 +1225,11 @@ def build_final_markdown(
             f"source_url: {yaml_string(source['url'])}",
             f"cover_image: {yaml_string(source.get('cover_image', ''))}",
             f"published_at: {yaml_string(source.get('published_at', ''))}",
+            f"content_type: {yaml_string(source.get('content_type', 'webpage'))}",
+            f"media_provider: {yaml_string(source.get('media_provider', ''))}",
+            f"media_url: {yaml_string(source.get('media_url', ''))}",
+            f"processing_status: {yaml_string(source.get('processing_status', ''))}",
+            f"canvas_path: {yaml_string(source.get('canvas_path', ''))}",
             f"clipped_at: {yaml_string(source['clipped_at'])}",
             'status: "已整理"',
             tags_block,
@@ -993,6 +1243,9 @@ def build_final_markdown(
             f"> 站点：{source['site']}",
             f"> 收录：{source['clipped_at']}",
             published_line,
+            "",
+            "## Media / Source",
+            "\n".join(media_lines),
             "",
             "## 一句话总结",
             summary_text,
@@ -1032,7 +1285,18 @@ def build_notion_properties(
         "标签": {"multi_select": [{"name": tag} for tag in tags[:8]]},
         "摘要": {"rich_text": rich_text(summary_text)},
         "Obsidian": {"rich_text": rich_text(str(final_path))},
+        "Content Type": {
+            "select": {
+                "name": source.get("content_type_label")
+                or CONTENT_TYPE_CONFIG.get(source.get("content_type", "webpage"), {}).get("label", "Web Page / 网页")
+            }
+        },
+        "Processing": {"select": {"name": source.get("processing_status", "page_text_extracted")}},
+        "Media Provider": {"rich_text": rich_text(source.get("media_provider", ""))},
+        "Canvas": {"rich_text": rich_text(source.get("canvas_path", ""))},
     }
+    if source.get("media_url"):
+        properties["Media URL"] = {"url": source["media_url"]}
     published_date = to_date_string(source.get("published_at", ""))
     if published_date:
         properties["发布日期"] = {"date": {"start": published_date}}
@@ -1058,7 +1322,11 @@ def build_notion_children(
         f"收录时间：{source['clipped_at']}",
         f"来源站点：{source['site']}",
         f"平台类型：{platform_label}",
+        f"内容类型：{source.get('content_type_label') or source.get('content_type', 'webpage')}",
+        f"处理状态：{source.get('processing_status', '') or 'page_text_extracted'}",
     ]
+    if source.get("media_provider"):
+        metadata_lines.append(f"媒体平台：{source['media_provider']}")
     if source.get("published_at"):
         metadata_lines.append(f"发布时间：{source['published_at']}")
     if tags:
@@ -1256,6 +1524,90 @@ def read_history() -> list[dict[str, Any]]:
         return []
 
 
+def load_canvas_board() -> dict[str, Any]:
+    ensure_runtime()
+    if not CANVAS_PATH.exists():
+        return {"cards": [], "updated_at": ""}
+    try:
+        data = json.loads(CANVAS_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            cards = data.get("cards")
+            if isinstance(cards, list):
+                return {"cards": [card for card in cards if isinstance(card, dict)], "updated_at": data.get("updated_at", "")}
+    except Exception:
+        pass
+    return {"cards": [], "updated_at": ""}
+
+
+def save_canvas_board(board: dict[str, Any]) -> None:
+    ensure_runtime()
+    board["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    CANVAS_PATH.write_text(json.dumps(board, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def build_canvas_card(entry: dict[str, Any], existing: dict[str, Any] | None, index: int) -> dict[str, Any]:
+    current = existing or {}
+    return merge_nonempty(
+        {
+            "id": current.get("id") or uuid4().hex,
+            "x": current.get("x", 80 + (index % 3) * 320),
+            "y": current.get("y", 80 + (index // 3) * 220),
+        },
+        current,
+        {
+            "source_url": entry.get("source_url", ""),
+            "title": entry.get("title", ""),
+            "summary": entry.get("summary", ""),
+            "category": entry.get("category", ""),
+            "platform": entry.get("platform", ""),
+            "content_type": entry.get("content_type", ""),
+            "content_type_label": entry.get("content_type_label", ""),
+            "media_provider": entry.get("media_provider", ""),
+            "processing_status": entry.get("processing_status", ""),
+            "notion_page_url": entry.get("notion_page_url", entry.get("notion_url", "")),
+            "obsidian_path": entry.get("obsidian_path", ""),
+            "captured_at": entry.get("captured_at", ""),
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        },
+    )
+
+
+def upsert_canvas_card(entry: dict[str, Any]) -> None:
+    source_url = normalize_whitespace(str(entry.get("source_url", "")))
+    if not source_url:
+        return
+    board = load_canvas_board()
+    cards = board.get("cards") or []
+    existing_index = next(
+        (index for index, card in enumerate(cards) if normalize_whitespace(str(card.get("source_url", ""))) == source_url),
+        -1,
+    )
+    if existing_index >= 0:
+        cards[existing_index] = build_canvas_card(entry, cards[existing_index], existing_index)
+    else:
+        cards.insert(0, build_canvas_card(entry, None, len(cards)))
+    board["cards"] = cards[:80]
+    save_canvas_board(board)
+
+
+def update_canvas_positions(updates: list[dict[str, Any]]) -> dict[str, Any]:
+    board = load_canvas_board()
+    cards = board.get("cards") or []
+    update_map = {str(item.get("id")): item for item in updates if isinstance(item, dict) and item.get("id")}
+    for card in cards:
+        update = update_map.get(str(card.get("id")))
+        if not update:
+            continue
+        for key in ("x", "y"):
+            try:
+                card[key] = int(float(update.get(key, card.get(key, 0))))
+            except (TypeError, ValueError):
+                pass
+    board["cards"] = cards
+    save_canvas_board(board)
+    return board
+
+
 def history_entry_for_url(source_url: str) -> dict[str, str]:
     for item in read_history():
         if normalize_whitespace(str(item.get("source_url", ""))) != source_url:
@@ -1274,6 +1626,12 @@ def history_entry_for_url(source_url: str) -> dict[str, str]:
             "captured_date": str(item.get("captured_date") or ""),
             "published_at": str(item.get("published_at") or ""),
             "published_date": str(item.get("published_date") or ""),
+            "content_type": str(item.get("content_type") or ""),
+            "content_type_label": str(item.get("content_type_label") or ""),
+            "media_provider": str(item.get("media_provider") or ""),
+            "media_url": str(item.get("media_url") or ""),
+            "processing_status": str(item.get("processing_status") or ""),
+            "canvas_path": str(item.get("canvas_path") or ""),
         }
     return {}
 
@@ -1314,7 +1672,8 @@ def build_capture_payload(
     source = extract_article(url)
     clipped_at = datetime.now().strftime("%Y-%m-%d %H:%M")
     source["clipped_at"] = clipped_at
-    source["platform_hint"] = infer_platform(source["url"], source["site"])
+    source["canvas_path"] = str(CANVAS_PATH)
+    source["platform_hint"] = infer_platform(source["url"], source["site"], source.get("content_type", ""))
     source["suggested_category"] = normalize_category(category_override, "")
     if not category_override:
         source["suggested_category"] = infer_category(
@@ -1377,6 +1736,12 @@ def build_capture_payload(
         "published_date": published_date,
         "site": source["site"],
         "source_url": source["url"],
+        "content_type": source.get("content_type", "webpage"),
+        "content_type_label": source.get("content_type_label", "Web Page / 网页"),
+        "media_provider": source.get("media_provider", ""),
+        "media_url": source.get("media_url", ""),
+        "processing_status": source.get("processing_status", ""),
+        "canvas_path": source.get("canvas_path", ""),
         "summary_text": normalize_whitespace(str(summary["summary"])),
         "key_points": safe_list(summary["key_points"], 5),
         "action_items": safe_list(summary["action_items"], 3),
@@ -1409,6 +1774,12 @@ def build_preview_response(prepared: dict[str, Any], *, preview_id: str) -> dict
         "published_at": prepared["published_at"],
         "published_date": prepared["published_date"],
         "source_url": prepared["source_url"],
+        "content_type": prepared.get("content_type", "webpage"),
+        "content_type_label": prepared.get("content_type_label", "Web Page / 网页"),
+        "media_provider": prepared.get("media_provider", ""),
+        "media_url": prepared.get("media_url", ""),
+        "processing_status": prepared.get("processing_status", ""),
+        "canvas_path": prepared.get("canvas_path", ""),
         "notes": prepared["notes"],
         "duplicate_found": prepared["duplicate_found"],
         "sync_action": prepared["sync_action"],
@@ -1486,6 +1857,12 @@ def finalize_capture(prepared: dict[str, Any]) -> dict[str, Any]:
         "published_at": prepared["published_at"],
         "published_date": prepared["published_date"],
         "source_url": source["url"],
+        "content_type": prepared.get("content_type", "webpage"),
+        "content_type_label": prepared.get("content_type_label", "Web Page / 网页"),
+        "media_provider": prepared.get("media_provider", ""),
+        "media_url": prepared.get("media_url", ""),
+        "processing_status": prepared.get("processing_status", ""),
+        "canvas_path": prepared.get("canvas_path", ""),
         "notes": notes,
         "duplicate_found": duplicate_found,
         "sync_action": "update" if duplicate_found else "create",
@@ -1494,6 +1871,7 @@ def finalize_capture(prepared: dict[str, Any]) -> dict[str, Any]:
     }
     append_history(result)
     upsert_capture_index(result)
+    upsert_canvas_card(result)
     return result
 
 
@@ -1544,13 +1922,18 @@ class CaptureHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:
-        if self.path in ("/", "/index.html", "/url-capture.html"):
+        request_path = urlparse(self.path).path
+        if request_path in ("/", "/index.html", "/url-capture.html"):
             self._send_html(HTML_PATH.read_text(encoding="utf-8"))
             return
-        if self.path == "/api/recent":
+        if request_path == "/api/recent":
             self._send_json({"ok": True, "items": read_history()})
             return
-        if self.path == "/api/health":
+        if request_path == "/api/canvas":
+            board = load_canvas_board()
+            self._send_json({"ok": True, **board})
+            return
+        if request_path == "/api/health":
             config = load_config()
             meta = load_notion_meta()
             self._send_json(
@@ -1564,23 +1947,36 @@ class CaptureHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if request_path == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
         self._send_json({"ok": False, "error": "Not found"}, status=404)
 
     def do_POST(self) -> None:
-        if self.path not in ("/api/preview", "/api/capture"):
+        request_path = urlparse(self.path).path
+        if request_path not in ("/api/preview", "/api/capture", "/api/canvas"):
             self._send_json({"ok": False, "error": "Not found"}, status=404)
             return
 
         try:
             raw_length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(raw_length).decode("utf-8"))
+            if request_path == "/api/canvas":
+                updates = payload.get("cards") or []
+                if not isinstance(updates, list):
+                    raise ValueError("Canvas cards must be a list")
+                board = update_canvas_positions(updates)
+                self._send_json({"ok": True, **board})
+                return
+
             url = normalize_whitespace(str(payload.get("url", "")))
             title_override = normalize_whitespace(str(payload.get("title_override", "")))
             category_override = normalize_whitespace(str(payload.get("category_override", "")))
             notes = normalize_whitespace(str(payload.get("notes", "")))
             preview_id = normalize_whitespace(str(payload.get("preview_id", "")))
 
-            if self.path == "/api/preview":
+            if request_path == "/api/preview":
                 if not url or not re.match(r"^https?://", url):
                     raise ValueError("请输入有效的网页地址")
                 prepared = build_capture_payload(
@@ -1611,9 +2007,45 @@ class CaptureHandler(BaseHTTPRequestHandler):
             self._send_json(result)
         except requests.HTTPError as exc:
             detail = exc.response.text[:500] if exc.response is not None else str(exc)
-            self._send_json({"ok": False, "error": f"抓取或同步失败：{detail}"}, status=500)
+            status_code = exc.response.status_code if exc.response is not None else 500
+            if request_path == "/api/preview":
+                error = f"预览失败：网页抓取或模型接口返回错误。{detail}"
+                hint = "如果错误里出现 401、403、404、model 或 quota，优先检查模型名称、API key 和额度。"
+                stage = "preview_failed"
+            elif request_path == "/api/capture":
+                error = f"同步失败：预览已生成，但写入 Obsidian、Notion 或画布时失败。{detail}"
+                hint = "如果错误里出现 Notion validation，请检查数据库字段；如果是连接错误，稍后重试。"
+                stage = "sync_failed"
+            else:
+                error = f"请求失败：{detail}"
+                hint = ""
+                stage = "request_failed"
+            self._send_json({"ok": False, "stage": stage, "error": error, "hint": hint}, status=status_code)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            return
         except Exception as exc:
-            self._send_json({"ok": False, "error": str(exc)}, status=500)
+            if request_path == "/api/capture":
+                self._send_json(
+                    {
+                        "ok": False,
+                        "stage": "sync_failed",
+                        "error": f"同步失败：{exc}",
+                        "hint": "预览已经完成，但落地写入没有确认成功。",
+                    },
+                    status=500,
+                )
+            elif request_path == "/api/preview":
+                self._send_json(
+                    {
+                        "ok": False,
+                        "stage": "preview_failed",
+                        "error": f"预览失败：{exc}",
+                        "hint": "这一步通常和网页抓取、模型接口或返回格式有关。",
+                    },
+                    status=500,
+                )
+            else:
+                self._send_json({"ok": False, "error": str(exc)}, status=500)
 
 
 def main() -> None:
